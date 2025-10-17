@@ -1,7 +1,11 @@
 import Flutter
 import UIKit
 
+<<<<<<< HEAD
 @main
+=======
+@UIApplicationMain
+>>>>>>> master
 @objc class AppDelegate: FlutterAppDelegate {
   override func application(
     _ application: UIApplication,
