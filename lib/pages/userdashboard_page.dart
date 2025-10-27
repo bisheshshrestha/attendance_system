@@ -1,9 +1,28 @@
+import 'package:attendance_system/api_services/person.dart';
+import 'package:attendance_system/api_services/person_service.dart';
 import 'package:flutter/material.dart';
 
-class UserDashboardPage extends StatelessWidget {
+class UserDashboardPage extends StatefulWidget {
+  @override
+  State<UserDashboardPage> createState() => _UserDashboardPageState();
+}
+
+class _UserDashboardPageState extends State<UserDashboardPage> {
   final Color darkBlue = const Color(0xFF15194A);
+
   final Color lightBlue = const Color(0xFF1C2165);
+
   final Color accentBlue = const Color(0xFF7B82FF);
+  Person? user;
+  @override
+  void initState() {
+    super.initState();
+    PersonService().getPerson().then((value) {
+      setState(() {
+        user = value;
+      });
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -16,10 +35,11 @@ class UserDashboardPage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "Welcome! Bishesh Lal Shrestha",
+                "Welcome! ${user?.name ?? 'Guest'}",
                 style: TextStyle(
                     fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
               ),
+
               const SizedBox(height: 20),
               // Attendance Status Card
               Container(

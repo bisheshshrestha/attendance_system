@@ -1,4 +1,6 @@
 import 'package:attendance_system/pages/login_page.dart';
+import 'package:attendance_system/pages/profile.dart';
+import 'package:attendance_system/pages/userdashboard_page.dart';
 import 'package:flutter/material.dart';
 
 void main() {
@@ -15,8 +17,9 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Attendace System',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: LoginPage(),
+      home: ProfileView(),
     );
   }
 }
+
 
