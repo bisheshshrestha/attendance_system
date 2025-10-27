@@ -99,8 +99,47 @@ Demo credentials for login:
   ![Settings](screenshots/setting%20page.jpeg)
 
 
-## Next Steps (Week 3)
+## Week 3 Deliverables (Current)
 
-- Integrate Firebase authentication and real backend  
-- Implement check-in/check-out  
-- Add push notifications for reminders
+### 1. API Integration with API Ninjas 
+
+**What was implemented:**
+- Centralized `PersonService` class for all API calls
+- Real-world API integration using API Ninjas
+- Data fetching from production-ready endpoints
+- Singleton pattern to avoid duplicate API calls
+
+
+### 2. Dashboard Screen with API Data 
+
+**User Experience:**
+1. User logs in
+2. Dashboard loads with loading spinner
+3. API Ninjas fetches user data (2 seconds)
+4. Personalized welcome message displays
+5. Attendance status shown dynamically
+
+### 3. Profile Screen with Forms 
+
+**Features added:**
+- TextFormFields pre-populated with API data
+- Editable fields: Name, Email, Username, Birthday, Branch, Major
+- Form validation for each field
+- Professional styling with themed containers
+- Loading indicator during data fetch
+- Error handling with fallback values
+
+### Packages
+dependencies:
+flutter:
+sdk: flutter
+http: ^1.1.0 # HTTP requests for API
+table_calendar: ^3.0.9 # Interactive calendar
+
+## Screenshots
+
+- **Home Dashboard**  
+  ![Dashboard](screenshots/week%203/dashboard.png)
+
+- **Profile**  
+  ![Profile](screenshots/week%203/profile.png)
