@@ -12,17 +12,26 @@ class _LoginPageState extends State<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   String errorMessage = "";
+  bool _isLoading = false; // ADDED: Loading state
 
   final Color darkBlue = const Color(0xFF152874);
 
-  // ADDED THIS VALIDATION METHOD
-  void _validateAndLogin() {
+  // UPDATED: Added async and loading state
+  Future<void> _validateAndLogin() async {
     setState(() {
       errorMessage = "";
+      _isLoading = true;
     });
+
+    // Simulate network delay (remove in production or replace with actual API call)
+    await Future.delayed(const Duration(seconds: 1));
 
     if (_emailController.text.trim() == "user@gmail.com" &&
         _passwordController.text == "user123") {
+      setState(() {
+        _isLoading = false; // Stop loading before navigation
+      });
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => MainNavigationPage()),
@@ -30,6 +39,7 @@ class _LoginPageState extends State<LoginPage> {
     } else {
       setState(() {
         errorMessage = "Invalid email or password!";
+        _isLoading = false; // Stop loading on error
       });
     }
   }
@@ -54,6 +64,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   child: TextField(
                     controller: _emailController,
+                    enabled: !_isLoading, // Disable when loading
                     decoration: InputDecoration(
                       hintText: "Email/Id",
                       filled: true,
@@ -75,6 +86,7 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                   child: TextField(
                     controller: _passwordController,
+                    enabled: !_isLoading, // Disable when loading
                     obscureText: true,
                     decoration: InputDecoration(
                       hintText: "Password",
@@ -89,7 +101,7 @@ class _LoginPageState extends State<LoginPage> {
                     style: const TextStyle(color: Colors.white, fontSize: 16),
                   ),
                 ),
-                // ADDED ERROR MESSAGE DISPLAY
+                // Error message display
                 if (errorMessage.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.all(8.0),
@@ -98,7 +110,7 @@ class _LoginPageState extends State<LoginPage> {
                       style: TextStyle(color: Colors.red, fontSize: 14),
                     ),
                   ),
-                // Login button
+                // Login button with loading state
                 const SizedBox(height: 24),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
@@ -109,10 +121,19 @@ class _LoginPageState extends State<LoginPage> {
                       borderRadius: BorderRadius.circular(8),
                     ),
                   ),
-                  onPressed: _validateAndLogin, // CHANGED: added validation
-                  child: const Text("Login", style: TextStyle(fontSize: 16)),
+                  onPressed: _isLoading ? null : _validateAndLogin, // Disable when loading
+                  child: _isLoading
+                      ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                      : const Text("Login", style: TextStyle(fontSize: 16)),
                 ),
-                // ADDED DEMO CREDENTIALS INFO
+                // Demo credentials info
                 const SizedBox(height: 20),
                 Text(
                   "Demo credentials:\nuser@gmail.com / user123",
