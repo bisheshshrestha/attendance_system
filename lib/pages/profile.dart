@@ -42,6 +42,7 @@ class _ProfileViewState extends State<ProfileView> {
 
   @override
   Widget build(BuildContext context) {
+    if (user == null) return const CircularProgressIndicator();
     return Scaffold(
       backgroundColor: const Color(0xFF070046),
       appBar: AppBar(

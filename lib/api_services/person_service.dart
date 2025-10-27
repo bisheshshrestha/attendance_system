@@ -3,25 +3,29 @@ import 'package:attendance_system/api_services/person.dart';
 import 'package:http/http.dart' as http;
 
 class PersonService {
-  String baseUrl = "https://api.api-ninjas.com/v1/randomuser";
+  static Person? _cachedUser;
 
-  Future<Person?> getPerson() async {
+  Future<Person> getPerson() async {
+    if (_cachedUser != null) return _cachedUser!;
+
+    String baseUrl = "https://api.api-ninjas.com/v1/randomuser";
     try {
       final response = await http.get(
         Uri.parse(baseUrl),
         headers: {'X-Api-Key': '0Y08Df7ZmLbsK9MFLgQpWA==sSaiwxtaqGADHlY2'},
       );
 
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        var data = jsonDecode(response.body);
-        return Person.fromJson(data);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        _cachedUser = Person.fromJson(data);
+        return _cachedUser!;
       } else {
-        print("Error: ${response.statusCode}");
-        return null;
+        throw Exception("Failed to load user");
       }
     } catch (e) {
-      print("Exception: $e");
-      return null;
+      throw Exception(e);
     }
   }
 }
+
+//'

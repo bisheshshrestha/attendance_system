@@ -17,7 +17,7 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       title: 'Attendace System',
       theme: ThemeData(primarySwatch: Colors.blue),
-      home: ProfileView(),
+      home: LoginPage(),
     );
   }
 }

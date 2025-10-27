@@ -34,11 +34,14 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                "Welcome! ${user?.name ?? 'Guest'}",
-                style: TextStyle(
-                    fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
-              ),
+              user == null
+                    ? const Center(child: CircularProgressIndicator())
+                    : Text(
+                  "Welcome! ${user!.name}",
+                  style: TextStyle(
+                      fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
+                ),
+
 
               const SizedBox(height: 20),
               // Attendance Status Card
