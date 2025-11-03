@@ -2,7 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../api_services/person.dart';
+import '../models/person.dart';
 import '../api_services/person_service.dart';
 
 class ProfileView extends StatefulWidget {
