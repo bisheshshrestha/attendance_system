@@ -6,6 +6,11 @@
   <component name="ChangeListManager">
     <list default="true" id="4c5978cb-3798-4675-8d43-8c8056dd3697" name="Changes" comment="">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/api_services/app_service.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/api_services/app_service.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/models/meetings.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/models/meetings.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/pages/admin_pages/admin_attendance.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/pages/admin_pages/admin_attendance.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/pages/admin_pages/admin_meetings.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/pages/admin_pages/admin_meetings.dart" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/lib/pages/attendance_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/pages/attendance_page.dart" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/lib/pages/userdashboard_page.dart" beforeDir="false" afterPath="$PROJECT_DIR$/lib/pages/userdashboard_page.dart" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />

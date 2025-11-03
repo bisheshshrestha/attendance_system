@@ -588,7 +588,6 @@ class _AdminMeetingsPageState extends State<AdminMeetingsPage> {
     );
   }
 
-  /// ✅ EDIT MEETING - WITH status dropdown
   Future<void> _showEditMeetingDialog(Map<String, dynamic> meeting) async {
     final titleController = TextEditingController(text: meeting["title"]);
     final descriptionController =
@@ -671,7 +670,6 @@ class _AdminMeetingsPageState extends State<AdminMeetingsPage> {
                 ),
               ),
               const SizedBox(height: 10),
-              /// ✅ STATUS DROPDOWN ONLY IN EDIT
               Container(
                 decoration: BoxDecoration(
                   color: darkBlue,

@@ -27,7 +27,6 @@ class _AdminAttendanceState extends State<AdminAttendance> {
     _loadAttendanceData();
   }
 
-  /// ✅ Load real attendance data from API
   Future<void> _loadAttendanceData() async {
     try {
       setState(() {

@@ -25,6 +25,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
   List<Map<String, dynamic>> _todayMeetings = [];
   bool _hasCheckedIn = false;
   bool _hasCheckedOut = false;
+  String? _sessionId;
 
   @override
   void initState() {
@@ -34,6 +35,9 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
 
   Future<void> _loadUserData() async {
     try {
+      // Initialize session ID first
+      await _initializeSession();
+
       final person = await PersonService().getPerson();
 
       if (mounted) {
@@ -46,6 +50,29 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
       await _loadTodayMeetings();
     } catch (e) {
       debugPrint('Error loading user data: $e');
+    }
+  }
+
+  /// Initialize or retrieve session ID
+  Future<void> _initializeSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      var sessionId = prefs.getString('session_id');
+
+      if (sessionId == null || sessionId.isEmpty) {
+        // Create new session ID
+        sessionId = 'session_${DateTime.now().millisecondsSinceEpoch}';
+        await prefs.setString('session_id', sessionId);
+        debugPrint('New session created: $sessionId');
+      } else {
+        debugPrint(' Session retrieved: $sessionId');
+      }
+
+      setState(() {
+        _sessionId = sessionId;
+      });
+    } catch (e) {
+      debugPrint('❌ Error initializing session: $e');
     }
   }
 
@@ -71,9 +98,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
               _todayCheckOut = latestRecord['check_out_time']?.toString() ?? '--:--';
               _attendancePercentage = (stats['present_percentage'] ?? 0) / 100.0;
 
-
               _hasCheckedIn = _todayCheckIn != '--:--';
-
               _hasCheckedOut = _todayCheckOut != '--:--' && _todayCheckOut != 'N/A';
             });
           }
@@ -108,26 +133,28 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
     }
   }
 
-
+  /// Quick Checkout using Session ID
   Future<void> _quickCheckOut() async {
-    if (_isCheckingOut || _hasCheckedOut) return;
+    if (_isCheckingOut || _hasCheckedOut || _sessionId == null) return;
 
     setState(() {
       _isCheckingOut = true;
     });
 
     try {
-      debugPrint('Starting checkout...');
+      debugPrint('🔄 Starting checkout with sessionId: $_sessionId');
 
-      final result = await AppService.markCheckout();
+      // Use session-based checkout instead of the old markCheckout method
+      final result = await AppService.markCheckoutBySession(sessionId: _sessionId!);
 
-      debugPrint('Checkout result: $result');
+      debugPrint(' Checkout result: $result');
 
       if (mounted) {
         if (result['success'] == true) {
-          await _loadTodayAttendance();
+          debugPrint(' Checkout successful, reloading attendance data...');
 
           await Future.delayed(const Duration(milliseconds: 500));
+          await _loadTodayAttendance();
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -137,7 +164,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
             ),
           );
 
-          debugPrint('Checkout successful! New checkout time: $_todayCheckOut');
+          debugPrint(' Checkout successful! New checkout time: $_todayCheckOut');
 
           setState(() {
             _isCheckingOut = false;
@@ -151,7 +178,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
             ),
           );
 
-          debugPrint('Checkout failed: ${result['error']}');
+          debugPrint('❌ Checkout failed: ${result['error']}');
 
           setState(() {
             _isCheckingOut = false;
@@ -159,7 +186,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
         }
       }
     } catch (e) {
-      debugPrint('Checkout exception: $e');
+      debugPrint('❌ Checkout exception: $e');
       if (mounted) {
         setState(() {
           _isCheckingOut = false;
@@ -380,13 +407,19 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
           ),
           const SizedBox(height: 16),
 
-
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: !_hasCheckedIn || _hasCheckedOut || _isCheckingOut ? null : _quickCheckOut,
+              onPressed: !_hasCheckedIn || _hasCheckedOut || _isCheckingOut || _sessionId == null ? null : _quickCheckOut,
               icon: _isCheckingOut
-                  ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)))
+                  ? const SizedBox(
+                height: 16,
+                width: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              )
                   : const Icon(Icons.logout),
               label: Text(_isCheckingOut ? 'Checking Out...' : 'End Shift'),
               style: ElevatedButton.styleFrom(

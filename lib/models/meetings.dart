@@ -6,7 +6,7 @@ class Meeting {
   final String date;
   final String location;
   final List<String> attendees;
-  final String status; // upcoming, completed, cancelled
+  final String status;
 
   Meeting({
     required this.id,

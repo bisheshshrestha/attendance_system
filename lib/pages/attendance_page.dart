@@ -17,46 +17,66 @@ class _AttendancePageState extends State<AttendancePage> {
   final Color accentBlue = const Color(0xFF7B82FF);
 
   bool _isLoading = false;
-  bool _isLoadingStats = false;
   String? _recentCheckIn;
   String? _recentCheckOut;
   String? _recentStatus;
   String? _userName;
-  String? _userId;
+  String? _sessionId;
   List<Map<String, dynamic>> _attendanceHistory = [];
   Map<String, dynamic> _stats = {};
-
-  // Check-in settings variables
   String _workStartTime = '09:00';
   int _lateThresholdMinutes = 15;
 
   @override
   void initState() {
     super.initState();
-    _initializeAttendancePage();
+    _loadAllData();
   }
 
-  Future<void> _initializeAttendancePage() async {
+  Future<void> _loadAllData() async {
+    await _initializeSession();
     await _loadCheckInSettings();
     await _fetchCurrentUserAndHistory();
     await _loadStatistics();
   }
 
-  /// Load Check-in Settings from SharedPreferences
+  /// Initialize or retrieve session ID
+  Future<void> _initializeSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      var sessionId = prefs.getString('session_id');
+
+      if (sessionId == null || sessionId.isEmpty) {
+        // Create new session ID
+        sessionId = 'session_${DateTime.now().millisecondsSinceEpoch}';
+        await prefs.setString('session_id', sessionId);
+        debugPrint('✅ New session created: $sessionId');
+      } else {
+        debugPrint('✅ Session retrieved: $sessionId');
+      }
+
+      setState(() {
+        _sessionId = sessionId;
+      });
+    } catch (e) {
+      debugPrint('❌ Error initializing session: $e');
+    }
+  }
+
   Future<void> _loadCheckInSettings() async {
     try {
       final prefs = await SharedPreferences.getInstance();
+      if (!mounted) return;
       setState(() {
         _workStartTime = prefs.getString('work_start_time') ?? '09:00';
         _lateThresholdMinutes = prefs.getInt('late_threshold_minutes') ?? 15;
       });
-      debugPrint('Loaded settings: Start Time: $_workStartTime, Late Threshold: $_lateThresholdMinutes minutes');
+      debugPrint('✅ Settings loaded: Start=$_workStartTime, Grace=$_lateThresholdMinutes min');
     } catch (e) {
-      debugPrint('Error loading check-in settings: $e');
+      debugPrint('❌ Error loading settings: $e');
     }
   }
 
-  /// Determine if check-in time is late
   String _determineStatus(String checkInTime) {
     if (checkInTime == '--:--' || checkInTime.isEmpty) {
       return 'Absent';
@@ -65,7 +85,6 @@ class _AttendancePageState extends State<AttendancePage> {
     try {
       String timeString = checkInTime.replaceAll(' AM', '').replaceAll(' PM', '').trim();
       List<String> timeParts = timeString.split(':');
-
       if (timeParts.length != 2) return 'Present';
 
       int checkInHour = int.parse(timeParts[0]);
@@ -84,50 +103,53 @@ class _AttendancePageState extends State<AttendancePage> {
       int allowedMinutes = startHour * 60 + startMinute + _lateThresholdMinutes;
       int checkInMinutes = checkInHour * 60 + checkInMinute;
 
-      debugPrint('Check-in: $checkInMinutes, Allowed: $allowedMinutes, Threshold: $_lateThresholdMinutes min');
-
-      if (checkInMinutes > allowedMinutes) {
-        return 'Late';
-      } else {
-        return 'Present';
-      }
+      return checkInMinutes > allowedMinutes ? 'Late' : 'Present';
     } catch (e) {
-      debugPrint('Error determining status: $e');
+      debugPrint('❌ Error determining status: $e');
       return 'Present';
     }
   }
 
-  /// Fetch current user and attendance history
   Future<void> _fetchCurrentUserAndHistory() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
-
     try {
+      debugPrint('🔄 Fetching attendance data...');
       final person = await PersonService().getPerson();
       final history = await AppService.getUserAttendanceHistory();
 
-      if (mounted) {
-        setState(() {
-          _userName = person.name;
-          // _userId = person.id.toString();
-          _attendanceHistory = history;
+      if (!mounted) return;
 
-          final today = DateTime.now().toString().split(' ')[0];
-          final todayRecords = history.where((r) => r['date']?.toString().contains(today) ?? false).toList();
+      final today = DateTime.now().toString().split(' ')[0];
+      final todayRecords = history.where((r) => r['date']?.toString() == today).toList();
 
-          if (todayRecords.isNotEmpty) {
-            final latestRecord = todayRecords.last;
-            _recentCheckIn = latestRecord['check_in_time']?.toString() ?? '--:--';
-            _recentCheckOut = latestRecord['check_out_time']?.toString() ?? '--:--';
-            _recentStatus = _determineStatus(_recentCheckIn!);
-          } else {
-            _recentCheckIn = '--:--';
-            _recentCheckOut = '--:--';
-            _recentStatus = 'Absent';
-          }
-        });
+      debugPrint('📋 Total records: ${history.length}');
+      debugPrint('📅 Today\'s records: ${todayRecords.length}');
+
+      String checkIn = '--:--';
+      String checkOut = '--:--';
+      String status = 'Absent';
+
+      if (todayRecords.isNotEmpty) {
+        final latestRecord = todayRecords.last;
+        checkIn = latestRecord['check_in_time']?.toString() ?? '--:--';
+        checkOut = latestRecord['check_out_time']?.toString() ?? '--:--';
+        status = _determineStatus(checkIn);
+        debugPrint('✅ Record: CheckIn=$checkIn, CheckOut=$checkOut, Status=$status');
+      } else {
+        debugPrint('⚠️ No records for today');
       }
+
+      setState(() {
+        _userName = person.name;
+        _attendanceHistory = List<Map<String, dynamic>>.from(history.reversed);
+        _recentCheckIn = checkIn;
+        _recentCheckOut = checkOut;
+        _recentStatus = status;
+      });
+      debugPrint('✅ UI Updated');
     } catch (e) {
-      debugPrint('Error fetching user data: $e');
+      debugPrint('❌ Error: $e');
       if (mounted) {
         setState(() {
           _recentCheckIn = '--:--';
@@ -136,140 +158,138 @@ class _AttendancePageState extends State<AttendancePage> {
         });
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  /// Load attendance statistics
   Future<void> _loadStatistics() async {
-    setState(() => _isLoadingStats = true);
-
     try {
       final stats = await AppService.getAttendanceStats();
       if (mounted) {
         setState(() => _stats = stats);
+        debugPrint(
+            '✅ Stats: P=${stats['present_count']}, L=${stats['late_count']}, A=${stats['absent_count']}');
       }
     } catch (e) {
-      debugPrint('Error loading statistics: $e');
-    } finally {
-      setState(() => _isLoadingStats = false);
+      debugPrint('❌ Error loading stats: $e');
     }
   }
 
-  /// ✅ CHECK-IN Function
   Future<void> _markCheckIn() async {
-    if (_isLoading) return;
-
+    if (_isLoading || _recentCheckIn != '--:--' || _sessionId == null) return;
     setState(() => _isLoading = true);
-
     try {
+      debugPrint('🔄 Marking check-in...');
       final person = await PersonService().getPerson();
-
-      final result = await AppService.markAttendance(
+      final result = await AppService.markAttendanceBySession(
+        sessionId: _sessionId!,
         userName: person.name,
         latitude: '27.7172',
         longitude: '85.3240',
       );
 
-      if (mounted) {
-        if (result['success'] == true) {
-          await _fetchCurrentUserAndHistory();
+      if (!mounted) return;
 
-          String message = _recentStatus == 'Late'
-              ? '✓ Checked in! Status: LATE (Grace period exceeded)'
-              : '✓ Checked in successfully! Status: PRESENT';
-
+      if (result['success'] == true) {
+        debugPrint('✅ Check-in successful, refreshing data...');
+        await Future.delayed(const Duration(milliseconds: 500));
+        await _fetchCurrentUserAndHistory();
+        await _loadStatistics();
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(message),
+              content: Text('✓ Checked in at $_recentCheckIn - Status: $_recentStatus'),
               backgroundColor: _recentStatus == 'Late' ? Colors.orange : Colors.green,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: ${result['message'] ?? 'Unable to mark attendance'}'),
-              backgroundColor: Colors.red,
               duration: const Duration(seconds: 2),
             ),
           );
         }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    } finally {
-      setState(() => _isLoading = false);
-    }
-  }
-
-  /// ✅ CHECK-OUT Function (Uses AppService.markCheckout())
-  /// ✅ CHECK-OUT Function (FIXED - Works without ID)
-  Future<void> _markCheckOut() async {
-    if (_isLoading) return;
-
-    setState(() => _isLoading = true);
-
-    try {
-      debugPrint('Starting checkout...');
-
-      // Call your AppService.markCheckout() method
-      final result = await AppService.markCheckout();
-
-      debugPrint('Checkout result: $result');
-
-      if (mounted) {
-        if (result['success'] == true) {
-          // Refresh data to show updated checkout time
-          await _fetchCurrentUserAndHistory();
-
-          await Future.delayed(const Duration(milliseconds: 500));
-
+      } else {
+        if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('✓ Checked out successfully!\nTime: $_recentCheckOut'),
-              backgroundColor: Colors.green,
-              duration: const Duration(seconds: 3),
-            ),
-          );
-
-          debugPrint('Checkout successful! New checkout time: $_recentCheckOut');
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error: ${result['message'] ?? result['error'] ?? 'Unable to checkout'}'),
+              content: Text('Error: ${result['error']}'),
               backgroundColor: Colors.red,
-              duration: const Duration(seconds: 3),
             ),
           );
-
-          debugPrint('Checkout failed: ${result['error']}');
         }
       }
     } catch (e) {
-      debugPrint('Checkout exception: $e');
+      debugPrint('❌ Check-in error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error: $e'),
             backgroundColor: Colors.red,
-            duration: const Duration(seconds: 2),
           ),
         );
       }
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
+  Future<void> _markCheckOut() async {
+    if (_isLoading || _recentCheckOut != '--:--' || _sessionId == null) return;
+    setState(() => _isLoading = true);
+    try {
+      debugPrint('🔄 Marking check-out...');
+
+      final result = await AppService.markCheckoutBySession(sessionId: _sessionId!);
+
+      if (!mounted) return;
+
+      if (result['success'] == true) {
+        debugPrint('✅ Checkout successful, refreshing data...');
+        await Future.delayed(const Duration(milliseconds: 500));
+        await _fetchCurrentUserAndHistory();
+        await _loadStatistics();
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✓ Checked out at $_recentCheckOut'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: ${result['error']}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('❌ Checkout error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'present':
+        return Colors.green;
+      case 'late':
+        return Colors.orange;
+      case 'absent':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -286,8 +306,7 @@ class _AttendancePageState extends State<AttendancePage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh, color: Colors.white),
-            onPressed: _initializeAttendancePage,
-            tooltip: 'Refresh',
+            onPressed: _loadAllData,
           ),
         ],
       ),
@@ -296,13 +315,13 @@ class _AttendancePageState extends State<AttendancePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // User Info Card
+            // User Card
             if (_userName != null)
               Container(
                 decoration: BoxDecoration(
                   color: lightBlue,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: accentBlue.withOpacity(0.2), width: 1),
+                  border: Border.all(color: accentBlue.withOpacity(0.2)),
                 ),
                 padding: const EdgeInsets.all(16),
                 child: Row(
@@ -338,10 +357,9 @@ class _AttendancePageState extends State<AttendancePage> {
                               fontSize: 16,
                             ),
                           ),
-                          const SizedBox(height: 4),
                           Text(
                             DateFormat('EEEE, MMMM dd, yyyy').format(DateTime.now()),
-                            style: TextStyle(color: Colors.white70, fontSize: 12),
+                            style: const TextStyle(color: Colors.white70, fontSize: 12),
                           ),
                         ],
                       ),
@@ -351,106 +369,36 @@ class _AttendancePageState extends State<AttendancePage> {
               ),
             const SizedBox(height: 20),
 
-            // Work Hours Info Card
+            // Today's Status Card
             Container(
               decoration: BoxDecoration(
                 color: lightBlue,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: accentBlue.withOpacity(0.2), width: 1),
+                border: Border.all(color: accentBlue.withOpacity(0.2)),
               ),
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                children: [
-                  Icon(Icons.schedule, color: accentBlue, size: 20),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Work Start Time',
-                          style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600),
-                        ),
-                        Text(
-                          _workStartTime,
-                          style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.bold),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: accentBlue.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      '+$_lateThresholdMinutes min grace',
-                      style: TextStyle(color: accentBlue, fontSize: 11, fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-
-            // Today's Attendance Card with CHECK-IN & CHECK-OUT
-            Container(
-              decoration: BoxDecoration(
-                color: lightBlue,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: _recentStatus == 'Late'
-                      ? Colors.orange.withOpacity(0.5)
-                      : accentBlue.withOpacity(0.3),
-                  width: 2,
-                ),
-              ),
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(16),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const Text(
+                    'Today\'s Status',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        "Today's Status",
-                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: _recentStatus == 'Late'
-                              ? Colors.orange.withOpacity(0.3)
-                              : _recentStatus == 'Present'
-                              ? Colors.green.withOpacity(0.3)
-                              : Colors.red.withOpacity(0.3),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          _recentStatus ?? 'Loading...',
-                          style: TextStyle(
-                            color: _recentStatus == 'Late'
-                                ? Colors.orange
-                                : _recentStatus == 'Present'
-                                ? Colors.green
-                                : Colors.red,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
                     children: [
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            const Text(
                               'Check In',
-                              style: TextStyle(color: Colors.white70, fontSize: 12),
+                              style: TextStyle(color: Colors.white54, fontSize: 11),
                             ),
                             const SizedBox(height: 4),
                             Text(
@@ -468,9 +416,9 @@ class _AttendancePageState extends State<AttendancePage> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            const Text(
                               'Check Out',
-                              style: TextStyle(color: Colors.white70, fontSize: 12),
+                              style: TextStyle(color: Colors.white54, fontSize: 11),
                             ),
                             const SizedBox(height: 4),
                             Text(
@@ -484,67 +432,31 @@ class _AttendancePageState extends State<AttendancePage> {
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-
-                  // ✅ CHECK-IN & CHECK-OUT BUTTONS
-                  Row(
-                    children: [
-                      // Check-In Button
                       Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _recentCheckIn == '--:--' && !_isLoading ? _markCheckIn : null,
-                          icon: _isLoading
-                              ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                              strokeWidth: 2,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Status',
+                              style: TextStyle(color: Colors.white54, fontSize: 11),
                             ),
-                          )
-                              : const Icon(Icons.login, size: 18),
-                          label: Text(
-                            _isLoading ? 'Checking In...' : 'Check In',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                            disabledBackgroundColor: Colors.grey,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-
-                      // Check-Out Button
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: _recentCheckIn != '--:--' && _recentCheckOut == '--:--' && !_isLoading
-                              ? _markCheckOut
-                              : null,
-                          icon: _isLoading
-                              ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                              strokeWidth: 2,
+                            const SizedBox(height: 4),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: _getStatusColor(_recentStatus ?? 'Absent').withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                _recentStatus ?? 'Absent',
+                                style: TextStyle(
+                                  color: _getStatusColor(_recentStatus ?? 'Absent'),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
-                          )
-                              : const Icon(Icons.logout, size: 18),
-                          label: Text(
-                            _isLoading ? 'Checking Out...' : 'Check Out',
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            foregroundColor: Colors.white,
-                            disabledBackgroundColor: Colors.grey,
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                          ),
+                          ],
                         ),
                       ),
                     ],
@@ -552,168 +464,312 @@ class _AttendancePageState extends State<AttendancePage> {
                 ],
               ),
             ),
-            const SizedBox(height: 28),
+            const SizedBox(height: 20),
 
-            // Statistics Section
-            Text(
-              'Statistics',
-              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            if (!_isLoadingStats)
-              Row(
-                children: [
-                  Expanded(
-                    child: _buildStatCard(
-                      'Present',
-                      _stats['present_count']?.toString() ?? '0',
-                      Colors.green,
-                      Icons.check_circle,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildStatCard(
-                      'Late',
-                      _stats['late_count']?.toString() ?? '0',
-                      Colors.orange,
-                      Icons.schedule,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _buildStatCard(
-                      'Absent',
-                      _stats['absent_count']?.toString() ?? '0',
-                      Colors.red,
-                      Icons.close_outlined,
-                    ),
-                  ),
-                ],
-              )
-            else
-              Row(
-                children: [1, 2, 3].map((_) {
-                  return Expanded(
-                    child: Container(
-                      height: 80,
-                      decoration: BoxDecoration(
-                        color: lightBlue,
-                        borderRadius: BorderRadius.circular(12),
+            // Check In / Check Out Buttons
+            Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: (_recentCheckIn != '--:--' || _isLoading) ? null : _markCheckIn,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      disabledBackgroundColor: Colors.grey.withOpacity(0.3),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                  );
-                }).toList(),
-              ),
-            const SizedBox(height: 28),
-
-            // Attendance History Section
-            Text(
-              'Recent Attendance History',
-              style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            if (_attendanceHistory.isNotEmpty)
-              Column(
-                children: _attendanceHistory.take(5).map((record) => _buildHistoryCard(record)).toList(),
-              )
-            else
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Text(
-                    'No attendance records yet',
-                    style: TextStyle(color: Colors.white70, fontSize: 14),
+                    child: _isLoading && _recentCheckIn == '--:--'
+                        ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                        : const Text(
+                      'Check In',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: (_recentCheckOut != '--:--' || _recentCheckIn == '--:--' || _isLoading)
+                        ? null
+                        : _markCheckOut,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                      disabledBackgroundColor: Colors.grey.withOpacity(0.3),
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: _isLoading && _recentCheckOut == '--:--'
+                        ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                        : const Text(
+                      'Check Out',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Statistics
+            Row(
+              children: [
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: lightBlue,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: accentBlue.withOpacity(0.2)),
+                    ),
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      children: [
+                        const Text(
+                          'Present',
+                          style: TextStyle(color: Colors.white54, fontSize: 12),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${_stats['present_count'] ?? 0}',
+                          style: const TextStyle(
+                            color: Colors.green,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: lightBlue,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: accentBlue.withOpacity(0.2)),
+                    ),
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      children: [
+                        const Text(
+                          'Late',
+                          style: TextStyle(color: Colors.white54, fontSize: 12),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${_stats['late_count'] ?? 0}',
+                          style: const TextStyle(
+                            color: Colors.orange,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: lightBlue,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: accentBlue.withOpacity(0.2)),
+                    ),
+                    padding: const EdgeInsets.all(12),
+                    child: Column(
+                      children: [
+                        const Text(
+                          'Absent',
+                          style: TextStyle(color: Colors.white54, fontSize: 12),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          '${_stats['absent_count'] ?? 0}',
+                          style: const TextStyle(
+                            color: Colors.red,
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Attendance History Header
+            const Text(
+              'Attendance History',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Attendance History List
+            if (_attendanceHistory.isEmpty)
+              Container(
+                decoration: BoxDecoration(
+                  color: lightBlue,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: accentBlue.withOpacity(0.2)),
+                ),
+                padding: const EdgeInsets.all(24),
+                child: const Center(
+                  child: Text(
+                    'No attendance records yet',
+                    style: TextStyle(color: Colors.white54, fontSize: 14),
+                  ),
+                ),
+              )
+            else
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _attendanceHistory.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 10),
+                itemBuilder: (context, index) {
+                  final record = _attendanceHistory[index];
+                  final date = record['date']?.toString() ?? 'Unknown';
+                  final checkIn = record['check_in_time']?.toString() ?? '--:--';
+                  final checkOut = record['check_out_time']?.toString() ?? '--:--';
+                  final status = record['status']?.toString() ?? 'Unknown';
+
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: lightBlue,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: accentBlue.withOpacity(0.2)),
+                    ),
+                    padding: const EdgeInsets.all(14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              date,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: _getStatusColor(status).withOpacity(0.2),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Text(
+                                status,
+                                style: TextStyle(
+                                  color: _getStatusColor(status),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Check In',
+                                  style: TextStyle(color: Colors.white54, fontSize: 11),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  checkIn,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Check Out',
+                                  style: TextStyle(color: Colors.white54, fontSize: 11),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  checkOut,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (record['latitude'] != null && record['longitude'] != null)
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Location',
+                                    style: TextStyle(color: Colors.white54, fontSize: 11),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Icon(
+                                    Icons.location_on,
+                                    color: accentBlue,
+                                    size: 16,
+                                  ),
+                                ],
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
             const SizedBox(height: 20),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildStatCard(String title, String value, Color color, IconData icon) {
-    return Container(
-      decoration: BoxDecoration(
-        color: lightBlue,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.3), width: 1),
-      ),
-      padding: const EdgeInsets.all(14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: color, size: 24),
-          const SizedBox(height: 8),
-          Text(title, style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w600)),
-          const SizedBox(height: 4),
-          Text(value, style: TextStyle(color: color, fontSize: 22, fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHistoryCard(Map<String, dynamic> record) {
-    String status = record['status']?.toString() ?? 'Unknown';
-    Color statusColor = status.toLowerCase() == 'late'
-        ? Colors.orange
-        : status.toLowerCase() == 'present'
-        ? Colors.green
-        : Colors.red;
-
-    IconData statusIcon = status.toLowerCase() == 'late'
-        ? Icons.schedule
-        : status.toLowerCase() == 'present'
-        ? Icons.check_circle
-        : Icons.close_outlined;
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: lightBlue,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: accentBlue.withOpacity(0.1), width: 1),
-      ),
-      padding: const EdgeInsets.all(12),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  record['date']?.toString() ?? 'N/A',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'In: ${record['check_in_time'] ?? '--:--'} | Out: ${record['check_out_time'] ?? '--:--'}',
-                  style: TextStyle(color: Colors.white70, fontSize: 11),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: statusColor.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Row(
-              children: [
-                Icon(statusIcon, color: statusColor, size: 14),
-                const SizedBox(width: 4),
-                Text(
-                  status.toUpperCase(),
-                  style: TextStyle(color: statusColor, fontSize: 10, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
