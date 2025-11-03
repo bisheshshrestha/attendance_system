@@ -18,11 +18,13 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
   final Color accentBlue = const Color(0xFF7B82FF);
 
   Person? user;
-  bool _isCheckingIn = false;
+  bool _isCheckingOut = false;
   String? _todayCheckIn;
   String? _todayCheckOut;
   double _attendancePercentage = 0.0;
   List<Map<String, dynamic>> _todayMeetings = [];
+  bool _hasCheckedIn = false;
+  bool _hasCheckedOut = false;
 
   @override
   void initState() {
@@ -68,6 +70,11 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
               _todayCheckIn = latestRecord['check_in_time']?.toString() ?? '--:--';
               _todayCheckOut = latestRecord['check_out_time']?.toString() ?? '--:--';
               _attendancePercentage = (stats['present_percentage'] ?? 0) / 100.0;
+
+
+              _hasCheckedIn = _todayCheckIn != '--:--';
+
+              _hasCheckedOut = _todayCheckOut != '--:--' && _todayCheckOut != 'N/A';
             });
           }
         }
@@ -88,7 +95,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
         final todayMeetings = meetings.where((m) {
           final dateTimeStr = (m['date_time'] ?? m['datetime'])?.toString() ?? '';
           return dateTimeStr.contains(today);
-        }).take(3).toList(); // Show max 3 meetings
+        }).take(3).toList();
 
         if (mounted) {
           setState(() {
@@ -101,48 +108,68 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
     }
   }
 
-  /// Quick check-in
-  Future<void> _quickCheckIn() async {
-    if (_isCheckingIn) return;
+
+  Future<void> _quickCheckOut() async {
+    if (_isCheckingOut || _hasCheckedOut) return;
 
     setState(() {
-      _isCheckingIn = true;
+      _isCheckingOut = true;
     });
 
     try {
-      final person = await PersonService().getPerson();
+      debugPrint('Starting checkout...');
 
-      final result = await AppService.markAttendance(
-        userName: person.name,
-        latitude: '27.7172',
-        longitude: '85.3240',
-      );
+      final result = await AppService.markCheckout();
+
+      debugPrint('Checkout result: $result');
 
       if (mounted) {
-        await _loadTodayAttendance();
+        if (result['success'] == true) {
+          await _loadTodayAttendance();
 
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(result['message']?.toString() ?? 'Check-in successful'),
-            backgroundColor: Colors.green,
-            duration: const Duration(seconds: 2),
-          ),
-        );
+          await Future.delayed(const Duration(milliseconds: 500));
 
-        setState(() {
-          _isCheckingIn = false;
-        });
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('✓ Checked out successfully!\nTime: $_todayCheckOut'),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+
+          debugPrint('Checkout successful! New checkout time: $_todayCheckOut');
+
+          setState(() {
+            _isCheckingOut = false;
+          });
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error: ${result['message'] ?? result['error'] ?? 'Unable to checkout'}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+
+          debugPrint('Checkout failed: ${result['error']}');
+
+          setState(() {
+            _isCheckingOut = false;
+          });
+        }
       }
     } catch (e) {
+      debugPrint('Checkout exception: $e');
       if (mounted) {
         setState(() {
-          _isCheckingIn = false;
+          _isCheckingOut = false;
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error: ${e.toString()}'),
+            content: Text('Error: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -231,7 +258,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  _actionButton(icon: Icons.login, label: "Check In", onTap: _quickCheckIn),
+                  _actionButton(icon: Icons.login, label: "Check In"),
                   _actionButton(icon: Icons.calendar_month, label: "Leave"),
                   _actionButton(icon: Icons.article, label: "News"),
                   _actionButton(icon: Icons.group, label: "Team"),
@@ -352,17 +379,20 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
             ],
           ),
           const SizedBox(height: 16),
+
+
           SizedBox(
             width: double.infinity,
             child: ElevatedButton.icon(
-              onPressed: _isCheckingIn ? null : _quickCheckIn,
-              icon: _isCheckingIn
+              onPressed: !_hasCheckedIn || _hasCheckedOut || _isCheckingOut ? null : _quickCheckOut,
+              icon: _isCheckingOut
                   ? const SizedBox(height: 16, width: 16, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)))
                   : const Icon(Icons.logout),
-              label: Text(_isCheckingIn ? 'Checking In...' : 'End Shift'),
+              label: Text(_isCheckingOut ? 'Checking Out...' : 'End Shift'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.orange,
-                disabledBackgroundColor: Colors.orange.withOpacity(0.5),
+                disabledBackgroundColor: Colors.grey,
+                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
               ),
@@ -373,24 +403,21 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
     );
   }
 
-  Widget _actionButton({required IconData icon, required String label, VoidCallback? onTap}) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              color: lightBlue,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: accentBlue.withOpacity(0.2), width: 1),
-            ),
-            padding: const EdgeInsets.all(14),
-            child: Icon(icon, color: accentBlue, size: 24),
+  Widget _actionButton({required IconData icon, required String label}) {
+    return Column(
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: lightBlue,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: accentBlue.withOpacity(0.2), width: 1),
           ),
-          const SizedBox(height: 8),
-          Text(label, style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500)),
-        ],
-      ),
+          padding: const EdgeInsets.all(14),
+          child: Icon(icon, color: accentBlue, size: 24),
+        ),
+        const SizedBox(height: 8),
+        Text(label, style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500)),
+      ],
     );
   }
 
@@ -446,7 +473,7 @@ class _UserDashboardPageState extends State<UserDashboardPage> {
                   const SizedBox(width: 4),
                   Text(
                     timeDisplay,
-                    style:  TextStyle(color: accentBlue, fontSize: 12, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: accentBlue, fontSize: 12, fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
