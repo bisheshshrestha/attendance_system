@@ -19,21 +19,25 @@ class _AdminMeetingsPageState extends State<AdminMeetingsPage> {
   DateTime? _selectedDay;
   String selectedFilter = "All";
 
-  late Future<List<Map<String, dynamic>>> _meetingsFuture;
+  // ✅ FIXED: Remove 'late' and initialize with empty future
+  Future<List<Map<String, dynamic>>> _meetingsFuture = Future.value([]);
 
   @override
   void initState() {
     super.initState();
-    _meetingsFuture = Future.value([]);
     _initializeData();
   }
 
+  /// ✅ Initialize meetings from SharedPreferences
   Future<void> _initializeData() async {
+    debugPrint('🔄 Initializing admin meetings data...');
     await AppService.initializeMeetings();
     _refreshMeetings();
   }
 
+  /// ✅ Refresh meetings - ensures latest data
   void _refreshMeetings() {
+    debugPrint('🔄 Refreshing meetings in admin page...');
     setState(() {
       _meetingsFuture = AppService.getMeetings();
     });
@@ -162,7 +166,6 @@ class _AdminMeetingsPageState extends State<AdminMeetingsPage> {
                       pickedTime.hour,
                       pickedTime.minute,
                     );
-                    // Always format 12-hour with AM/PM
                     final formatted = DateFormat('hh:mm a').format(dt);
                     timeController.text = formatted;
                   }
@@ -242,7 +245,7 @@ class _AdminMeetingsPageState extends State<AdminMeetingsPage> {
                 _refreshMeetings();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text("Meeting added successfully!"),
+                    content: Text("✅ Meeting added successfully!"),
                     backgroundColor: Colors.green,
                   ),
                 );
@@ -570,7 +573,7 @@ class _AdminMeetingsPageState extends State<AdminMeetingsPage> {
                       _refreshMeetings();
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text("Meeting deleted"),
+                          content: Text("✅ Meeting deleted"),
                           backgroundColor: Colors.green,
                         ),
                       );
@@ -729,7 +732,7 @@ class _AdminMeetingsPageState extends State<AdminMeetingsPage> {
                 _refreshMeetings();
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text("Meeting updated successfully!"),
+                    content: Text("✅ Meeting updated successfully!"),
                     backgroundColor: Colors.green,
                   ),
                 );

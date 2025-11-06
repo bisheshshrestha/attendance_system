@@ -4,13 +4,22 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class AppService {
   static List<Map<String, dynamic>> meetings = [];
+  static bool _meetingsInitialized = false;  // ✅ ADD THIS
 
   // ==================== INITIALIZE MEETINGS ====================
+  /// ✅ FIXED: Only initialize ONCE, don't reload every time
   static Future<void> initializeMeetings() async {
+    // ✅ If already initialized, don't reload - use in-memory data
+    if (_meetingsInitialized && meetings.isNotEmpty) {
+      debugPrint('✅ Meetings already initialized, using in-memory data: ${meetings.length}');
+      return;
+    }
+
     final prefs = await SharedPreferences.getInstance();
     final meetingsJson = prefs.getString('meetings_list');
 
     if (meetingsJson == null) {
+      // First time - create default meetings
       meetings = [
         {
           'id': '1',
@@ -19,48 +28,72 @@ class AppService {
           'date_time': '2025-11-02 09:30 AM',
           'location': 'Conference Room A',
           'attendees': ['John Doe', 'Jane Smith'],
-          'status': 'upcoming',
+          'status': 'completed',
         },
         {
           'id': '2',
           'title': 'Board Meeting',
           'description': 'Quarterly board review',
-          'date_time': '2025-11-02 02:00 PM',
+          'date_time': '2025-11-07 02:00 PM',
           'location': 'Main Hall',
           'attendees': ['Admin User', 'Mike Johnson'],
           'status': 'upcoming',
         },
       ];
       await _saveMeetings();
+      debugPrint('📋 Default meetings created');
     } else {
+      // Load from disk only on first initialization
       meetings = List<Map<String, dynamic>>.from(jsonDecode(meetingsJson));
+      debugPrint('✅ Meetings loaded from SharedPreferences: ${meetings.length} meetings');
     }
-    debugPrint('✅ Meetings initialized: ${meetings.length} meetings loaded');
+
+    _meetingsInitialized = true;  // ✅ Mark as initialized
+    debugPrint('📋 Meetings initialized: ${meetings.length} meetings loaded');
   }
 
   static Future<void> _saveMeetings() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('meetings_list', jsonEncode(meetings));
-    debugPrint('✅ Meetings saved to SharedPreferences');
+    debugPrint('💾 Meetings saved to SharedPreferences: ${meetings.length} meetings');
   }
 
   // ==================== USER MANAGEMENT ====================
   static Future<Map<String, dynamic>> getStoredUser() async {
     final prefs = await SharedPreferences.getInstance();
-    final user = {
+    return {
       'user_id': prefs.getString('user_id'),
       'user_name': prefs.getString('user_name'),
       'user_email': prefs.getString('user_email'),
       'user_role': prefs.getString('user_role'),
     };
-    debugPrint('📋 Stored User: $user');
-    return user;
   }
 
+  /// ✅ FIXED: Only clear user data, NOT meetings!
   static Future<void> logout() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
-    debugPrint('✅ User logged out and all data cleared');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // ✅ Remove ONLY user-specific data
+      await prefs.remove('user_id');
+      await prefs.remove('user_name');
+      await prefs.remove('user_email');
+      await prefs.remove('user_role');
+      await prefs.remove('session_id');
+      await prefs.remove('current_user_name');
+
+      // ✅ IMPORTANT: These are NOT deleted (persist across logout):
+      // - meetings_list (preserved)
+      // - attendance_records (preserved)
+
+      // ✅ Reset initialization flag so meetings reload on next login
+      _meetingsInitialized = false;
+
+      debugPrint('✅ User logged out - session data cleared');
+      debugPrint('✅ Meetings preserved: ${meetings.length} meetings still available');
+    } catch (e) {
+      debugPrint('❌ Error during logout: $e');
+    }
   }
 
   static Future<bool> isAuthenticated() async {
@@ -71,7 +104,7 @@ class AppService {
   // ==================== MEETINGS MANAGEMENT ====================
   static Future<List<Map<String, dynamic>>> getMeetings() async {
     await Future.delayed(const Duration(milliseconds: 300));
-    debugPrint('📋 Fetched ${meetings.length} meetings');
+    debugPrint('📋 Fetched ${meetings.length} meetings from memory');
     return meetings;
   }
 
@@ -97,7 +130,7 @@ class AppService {
 
     meetings.add(newMeeting);
     await _saveMeetings();
-    debugPrint('✅ Meeting created: ${newMeeting['id']}');
+    debugPrint('✅ Meeting created: ${newMeeting['title']} - Total now: ${meetings.length}');
 
     return {
       'success': true,
@@ -133,7 +166,7 @@ class AppService {
     };
 
     await _saveMeetings();
-    debugPrint('✅ Meeting updated: $meetingId');
+    debugPrint('✅ Meeting updated: $meetingId - Total: ${meetings.length}');
 
     return {
       'success': true,
@@ -146,7 +179,7 @@ class AppService {
 
     meetings.removeWhere((m) => m['id'] == meetingId);
     await _saveMeetings();
-    debugPrint('✅ Meeting deleted: $meetingId');
+    debugPrint('✅ Meeting deleted: $meetingId - Total now: ${meetings.length}');
 
     return {
       'success': true,
@@ -169,8 +202,6 @@ class AppService {
   }
 
   // ==================== ATTENDANCE MANAGEMENT ====================
-
-  /// Initialize attendance records on first launch
   static Future<void> initializeAttendance() async {
     final prefs = await SharedPreferences.getInstance();
     final attendanceJson = prefs.getString('attendance_records');
@@ -180,11 +211,10 @@ class AppService {
       debugPrint('✅ Attendance records initialized (empty)');
     } else {
       final count = (jsonDecode(attendanceJson) as List).length;
-      debugPrint('✅ Attendance records already exist: $count records');
+      debugPrint('✅ Attendance records exist: $count records');
     }
   }
 
-  /// Mark attendance by Session ID - Independent of username changes
   static Future<Map<String, dynamic>> markAttendanceBySession({
     required String sessionId,
     required String userName,
@@ -193,14 +223,12 @@ class AppService {
   }) async {
     try {
       await Future.delayed(const Duration(milliseconds: 500));
-      debugPrint('🔄 Marking attendance with sessionId: $sessionId, userName: $userName');
+      debugPrint('🔄 Marking attendance with sessionId: $sessionId');
 
       final now = DateTime.now();
-      final time =
-          '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
+      final time = '${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
       final date = now.toString().split(' ')[0];
 
-      // Check if already checked in today using SESSION ID
       final existingRecords = await getUserAttendanceHistory();
       final todayCheckIn = existingRecords.any((r) =>
       r['session_id'] == sessionId &&
@@ -208,7 +236,6 @@ class AppService {
           r['check_in_time'] != '--:--');
 
       if (todayCheckIn) {
-        debugPrint('❌ Already checked in today');
         return {
           'success': false,
           'error': 'Already checked in today',
@@ -216,7 +243,6 @@ class AppService {
         };
       }
 
-      // Create new attendance record with session ID
       final newRecord = {
         'id': DateTime.now().millisecondsSinceEpoch.toString(),
         'session_id': sessionId,
@@ -230,7 +256,6 @@ class AppService {
         'timestamp': DateTime.now().toIso8601String(),
       };
 
-      // Get existing records and add new one
       final prefs = await SharedPreferences.getInstance();
       final attendanceJson = prefs.getString('attendance_records') ?? '[]';
       final attendanceList = List<Map<String, dynamic>>.from(
@@ -238,11 +263,8 @@ class AppService {
       );
       attendanceList.add(newRecord);
 
-      // Save to SharedPreferences
       await prefs.setString('attendance_records', jsonEncode(attendanceList));
-      debugPrint('✅ Attendance marked successfully with session ID');
-      debugPrint('✅ Record: $newRecord');
-      debugPrint('✅ Total records: ${attendanceList.length}');
+      debugPrint('✅ Check-in successful at $time');
 
       return {
         'success': true,
@@ -259,7 +281,6 @@ class AppService {
     }
   }
 
-  /// Mark checkout by Session ID - Doesn't depend on current username
   static Future<Map<String, dynamic>> markCheckoutBySession({
     required String sessionId,
   }) async {
@@ -268,7 +289,6 @@ class AppService {
       debugPrint('🔄 Marking checkout for sessionId: $sessionId');
 
       if (sessionId.isEmpty) {
-        debugPrint('❌ Session ID is empty');
         return {
           'success': false,
           'error': 'Session ID cannot be empty',
@@ -282,29 +302,19 @@ class AppService {
       );
 
       final today = DateTime.now().toString().split(' ')[0];
-      final checkOutTime =
-          '${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}';
-
-      debugPrint('🔍 Looking for checkout record with sessionId: $sessionId on $today');
-      debugPrint('📊 Total records available: ${attendanceList.length}');
+      final checkOutTime = '${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}';
 
       bool found = false;
       for (int i = 0; i < attendanceList.length; i++) {
         final record = attendanceList[i];
-        debugPrint(
-            '🔎 Checking record: sessionId=${record['session_id']}, date=${record['date']}');
 
-        // Match by SESSION ID and DATE - not by username!
         if (record['session_id'] == sessionId && record['date'] == today) {
-          debugPrint('📍 Found matching record at index $i');
-
           if (record['check_out_time'] == '--:--' || record['check_out_time'] == null) {
             attendanceList[i]['check_out_time'] = checkOutTime;
             found = true;
             debugPrint('✅ Checkout time updated to: $checkOutTime');
             break;
           } else {
-            debugPrint('❌ Already checked out at: ${record['check_out_time']}');
             return {
               'success': false,
               'error': 'Already checked out at ${record['check_out_time']}',
@@ -314,7 +324,6 @@ class AppService {
       }
 
       if (!found) {
-        debugPrint('❌ No check-in record found for today');
         return {
           'success': false,
           'error': 'No check-in record found for today. Please check in first.',
@@ -323,7 +332,6 @@ class AppService {
 
       await prefs.setString('attendance_records', jsonEncode(attendanceList));
       debugPrint('✅ Checkout saved successfully');
-      debugPrint('✅ Total records: ${attendanceList.length}');
 
       return {
         'success': true,
@@ -340,7 +348,6 @@ class AppService {
     }
   }
 
-  /// Get today's attendance
   static Future<List<Map<String, dynamic>>> getTodayAttendance() async {
     try {
       await Future.delayed(const Duration(milliseconds: 300));
@@ -354,7 +361,6 @@ class AppService {
       final today = DateTime.now().toString().split(' ')[0];
       final todayRecords = attendance.where((a) => a['date'] == today).toList();
 
-      debugPrint('📅 Today\'s records: ${todayRecords.length}');
       return todayRecords;
     } catch (e) {
       debugPrint('❌ Error fetching today\'s attendance: $e');
@@ -362,7 +368,6 @@ class AppService {
     }
   }
 
-  /// Get all attendance history
   static Future<List<Map<String, dynamic>>> getUserAttendanceHistory() async {
     try {
       await Future.delayed(const Duration(milliseconds: 300));
@@ -371,7 +376,6 @@ class AppService {
       final attendanceJson = prefs.getString('attendance_records') ?? '[]';
 
       if (attendanceJson == '[]') {
-        debugPrint('⚠️ No attendance records found');
         return [];
       }
 
@@ -379,7 +383,6 @@ class AppService {
         jsonDecode(attendanceJson).map((item) => Map<String, dynamic>.from(item as Map)),
       );
 
-      debugPrint('✅ Retrieved ${attendance.length} attendance records');
       return attendance;
     } catch (e) {
       debugPrint('❌ Error retrieving attendance history: $e');
@@ -387,7 +390,6 @@ class AppService {
     }
   }
 
-  /// Get attendance by specific date
   static Future<List<Map<String, dynamic>>> getAttendanceByDate(String date) async {
     try {
       await Future.delayed(const Duration(milliseconds: 300));
@@ -395,7 +397,6 @@ class AppService {
       final allRecords = await getUserAttendanceHistory();
       final filtered = allRecords.where((a) => a['date'] == date).toList();
 
-      debugPrint('📅 Attendance records for $date: ${filtered.length}');
       return filtered;
     } catch (e) {
       debugPrint('❌ Error filtering by date: $e');
@@ -403,7 +404,6 @@ class AppService {
     }
   }
 
-  /// Get attendance statistics
   static Future<Map<String, dynamic>> getAttendanceStats() async {
     try {
       await Future.delayed(const Duration(milliseconds: 300));
@@ -415,11 +415,7 @@ class AppService {
       final absent = allRecords.where((a) => a['status'] == 'Absent').length;
       final total = allRecords.length;
 
-      final presentPercentage =
-      total == 0 ? 0.0 : ((present / total) * 100).toStringAsFixed(2);
-
-      debugPrint(
-          '📊 Stats - Present: $present, Late: $late, Absent: $absent, Total: $total');
+      final presentPercentage = total == 0 ? 0.0 : ((present / total) * 100).toStringAsFixed(2);
 
       return {
         'present_count': present,
@@ -442,7 +438,6 @@ class AppService {
     }
   }
 
-  /// Clear all attendance records (for testing/debugging)
   static Future<void> clearAllAttendanceRecords() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -453,7 +448,6 @@ class AppService {
     }
   }
 
-  /// Delete specific attendance record
   static Future<bool> deleteAttendanceRecord(String recordId) async {
     try {
       final prefs = await SharedPreferences.getInstance();
