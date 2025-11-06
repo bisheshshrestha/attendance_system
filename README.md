@@ -190,16 +190,16 @@ Password: admin123
 
 ### Admin App
 
-| Screen                                                 | Description                                        |
-|--------------------------------------------------------|----------------------------------------------------|
-| ![Splash Screen](screenshots/01_splash_screen.jpeg)     | **Role Selection** - Splash Screen                 |
-| ![Role Selection](screenshots/02_role_selection.jpeg)  | **Role Selection** - Choose User or Admin          |
-| ![Login](screenshots/03_user_login.jpeg)               | **Login Screen** - Email & password authentication |
-| ![Dashboard](screenshots/09_admin_dashboard.jpeg)      | **Dashboard** - Main admin interface after login   |
-| ![Attendance](screenshots/10_admin_attendance.jpeg)    | **Attendance** - Admin attendance management       |
-| ![Meetings](screenshots/11_admin_meetings.jpeg)        | **Meetings** - Admin meetings management           |
-| ![Profile](screenshots/12_admin_employee.jpeg)         | **Profile** - Admin employee management page       |
-| ![Settings](screenshots/14_admin_settings.jpeg)        | **Settings** - Admin settings page                 |
+| Screen                                                | Description                                        |
+|-------------------------------------------------------|----------------------------------------------------|
+| ![Splash Screen](screenshots/01_splash_screen.jpeg)   | **Role Selection** - Splash Screen                 |
+| ![Role Selection](screenshots/02_role_selection.jpeg) | **Role Selection** - Choose User or Admin          |
+| ![Login](screenshots/09_admin_login.jpeg)             | **Login Screen** - Email & password authentication |
+| ![Dashboard](screenshots/10_admin_dashboard.jpeg)     | **Dashboard** - Main admin interface after login   |
+| ![Attendance](screenshots/11_admin_attendance.jpeg)   | **Attendance** - Admin attendance management       |
+| ![Employee](screenshots/12_admin_employee.jpeg)       | **Meetings** - Admin meetings management           |
+| ![Meetings](screenshots/13_admin_meetings.jpeg)       | **Profile** - Admin employee management page       |
+| ![Settings](screenshots/14_admin_settings.jpeg)       | **Settings** - Admin settings page                 |
 
 ---
 ## 🙏 Acknowledgments
