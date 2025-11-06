@@ -173,7 +173,35 @@ Password: admin123
 7. **Reports:** Generate attendance reports
 
 ---
+## 📸 Screenshots
 
+### User App
+
+| Screen                                                 | Description                                        |
+|--------------------------------------------------------|----------------------------------------------------|
+| ![Splash Screen](screenshots/01_splash_screen.jpeg)     | **Role Selection** - Splash Screen                 |
+| ![Role Selection](screenshots/02_role_selection.jpeg)  | **Role Selection** - Choose User or Admin          |
+| ![Login](screenshots/03_user_login.jpeg)               | **Login Screen** - Email & password authentication |
+| ![Dashboard](screenshots/04_user_dashboard.jpeg)       | **Dashboard** - Main user interface after login    |
+| ![Attendance](screenshots/05_user_attendance.jpeg)     | **Attendance** - User attendance tracking screen   |
+| ![Meetings](screenshots/06_user_meetings.jpeg)         | **Meetings** - User meetings management screen     |
+| ![Profile](screenshots/07_user_profile.jpeg)           | **Profile** - User profile page                    |
+| ![Settings](screenshots/08_user_setting.jpeg)          | **Settings** - User settings page                  |
+
+### Admin App
+
+| Screen                                                 | Description                                        |
+|--------------------------------------------------------|----------------------------------------------------|
+| ![Splash Screen](screenshots/01_splash_screen.jpeg)     | **Role Selection** - Splash Screen                 |
+| ![Role Selection](screenshots/02_role_selection.jpeg)  | **Role Selection** - Choose User or Admin          |
+| ![Login](screenshots/03_user_login.jpeg)               | **Login Screen** - Email & password authentication |
+| ![Dashboard](screenshots/09_admin_dashboard.jpeg)      | **Dashboard** - Main admin interface after login   |
+| ![Attendance](screenshots/10_admin_attendance.jpeg)    | **Attendance** - Admin attendance management       |
+| ![Meetings](screenshots/11_admin_meetings.jpeg)        | **Meetings** - Admin meetings management           |
+| ![Profile](screenshots/12_admin_employee.jpeg)         | **Profile** - Admin employee management page       |
+| ![Settings](screenshots/14_admin_settings.jpeg)        | **Settings** - Admin settings page                 |
+
+---
 ## 🙏 Acknowledgments
 
 - Flutter and Dart communities for excellent documentation
