@@ -1,145 +1,200 @@
-# Attendance System
+# 📱 Attendance System
 
-A Flutter-based mobile application prototype for managing employee attendance, built as part of the Week 2 deliverable for Excelerate’s internship program.
+A Flutter-based mobile application for managing employee attendance and meetings with dual-role authentication (Admin & User) and complete offline support using SharedPreferences.
 
-## GitHub Repository
-https://github.com/bisheshshrestha/attendance_system
+---
+## 🎯 Overview
 
-## Figma Design Reference
-https://www.figma.com/design/fi74eVFunD5W6aqUe3Yx5W/Attendance_System?node-id=0-1&p=f&t=Mc6mkLfQ4tXU1rWc-0
+The Attendance System is a mobile app that enables employees to check in/out and view meetings, while admins can create and manage meetings. All data is stored locally, allowing the app to work completely offline.
+
+**What's Included:**
+- User & Admin Login
+- Meeting Management (Create/Edit/Delete)
+- Attendance Tracking (Check-in/Check-out)
+- Meeting Calendar View
+- User Dashboard
+- Admin Dashboard
+- Offline Support (SharedPreferences)
+- Meeting Persistence After Logout
+
+---
+### Figma Design Reference
+[View Design on Figma](https://www.figma.com/design/fi74eVFunD5W6aqUe3Yx5W/Attendance_System)
+
+---
+## ✨ Features
+
+### User Features
+- Login with email & password
+- View dashboard with attendance info
+- Check-in & Check-out
+- View meetings calendar
+- View profile & settings
+
+### Admin Features
+- Separate admin login
+- Create new meetings
+- Edit existing meetings
+- Delete meetings
+- View all meetings with filter
+- Manage attendance records
+
+### Data Management
+- All data saved locally (no backend needed)
+- Meetings persist after logout
+- Attendance records stored with timestamps
 
 ---
 
-## Week 2 Deliverables
+## 📁 Project Structure
 
-1. **Login Screen**
-    - Demo validation for `user@gmail.com` / `user123`
-    - Error message on invalid input
-    - Navigation to dashboard on success
-
-2. **Home Screen (Dashboard)**
-    - Attendance status card with circular progress indicator
-    - Quick action buttons (Leave, News, Team, Report)
-    - Schedule list of upcoming meetings
-
-3. **Program Listing Screen (Meeting Calendar)**
-    - Interactive calendar (TableCalendar)
-    - Date selector header
-    - List of meetings for selected date
-
-4. **Program Details Screen (Profile & Settings)**
-    - User profile view with logout
-    - Settings page with various options and logout
-
-5. **Navigation**
-    - BottomNavigationBar to switch between Dashboard, Meeting, Profile, and Settings
-    - Persistent navigation state
-    - Logout clears navigation stack back to login page
-
-6. **Screenshots**
-    - Include screenshots of each screen under `screenshots/` directory
-
----
-
-## Project Structure
-
-```text
+```
 lib/
-├── main.dart                  # App entry point and routes
-├── login_page.dart            # Login screen with validation
-├── main_navigation_page.dart  # Bottom navigation host
-├── userdashboard_page.dart    # Dashboard screen
-├── meeting_page.dart          # Meeting calendar screen
-├── profile_page.dart          # Profile screen
-├── settings_page.dart         # Settings screen
-└── shared_pref.dart           # Shared preferences helper
+├── main.dart                    # App entry point
+├── pages/
+│   ├── splash_screen.dart
+│   ├── login_page.dart
+│   ├── role_selection.dart
+│   ├── userdashboard_page.dart
+│   ├── attendance_page.dart
+│   ├── meeting_page.dart
+│   ├── profile.dart
+│   ├── setting_page.dart
+│   ├── navigation_page.dart
+│   ├── admin_pages/
+│   │   ├── admin_login.dart
+│   │   ├── admin_dashboard.dart
+│   │   ├── admin_meetings.dart
+│   │   ├── admin_attendance.dart
+│   │   ├── admin_employee.dart
+│   │   ├── admin_settings.dart
+│   │   ├── admin_reports.dart
+│   │   └── admin_navigation_page.dart
+├── models/
+│   ├── person.dart
+│   └── meetings.dart
+├── api_services/
+│   ├── app_service.dart
+│   └── person_service.dart
+└── pubspec.yaml
+```
+
+---
+---
+
+## 📦 Dependencies
+
+```yaml
+shared_preferences: ^2.5.3  # Local data storage
+table_calendar: ^3.2.0      # Meeting calendar
+intl: ^0.19.0               # Date formatting
+http: ^1.5.0                # API calls
+image_picker: ^1.1.2        # Camera/gallery access
+csv: ^6.0.0                 # Read and write CSV files
+path_provider: ^2.1.5       # Access device file system directories
+file_picker: ^10.3.3        # Pick files from the device
 ```
 
 ---
 
-## Setup Instructions
+## 🚀 Getting Started
 
-1. Clone the repository:
-   ```bash
+### Prerequisites
+```bash
+✅ Flutter 3.0+
+✅ Dart 3.0+
+✅ Android Studio or Xcode
+✅ Git
+```
+
+### Installation
+
+**1. Clone Repository**
+```bash
 git clone https://github.com/bisheshshrestha/attendance_system.git
 cd attendance_system
 ```
 
-2. Install dependencies:
-   ```bash
+**2. Install Dependencies**
+```bash
 flutter pub get
 ```
 
-3. Run the app:
-   ```bash
+**3. Run Application**
+```bash
 flutter run
 ```
+---
 
-Demo credentials for login:
-- Email: `user@gmail.com`
-- Password: `user123`
+## 🔐 Demo Login
 
+### User
+```
+Email:    user@gmail.com
+Password: user123
 ```
 
-## Screenshots
+### Admin
+```
+Email:    admin@attendance.com
+Password: admin123
+```
 
-- **Login Screen**  
-  ![Login Screen](screenshots/login%20page.jpeg)
+---
 
-- **Home Dashboard**  
-  ![Dashboard](screenshots/dashboard%20page.jpeg)
+## 📖 How to Use
 
-- **Meeting Calendar**  
-  ![Meeting](screenshots/meeting%20page.jpeg)
+### For Users
 
-- **Profile**  
-  ![Profile](screenshots/profile%20page.jpeg)
+1. **Login:** Enter user credentials
+2. **Dashboard:** View attendance percentage and today's meetings
+3. **Check-in:** Tap "Check In" button to mark attendance
+4. **Check-out:** Tap "Check Out" to mark checkout
+5. **Meetings:** View scheduled meetings in calendar
+6. **Profile:** Update personal information
+7. **Logout:** Exit application
 
-- **Settings**  
-  ![Settings](screenshots/setting%20page.jpeg)
+### For Admins
 
+1. **Admin Login:** Enter admin credentials
+2. **Dashboard:** View statistics and overview
+3. **Add Meeting:**
+    - Tap "+" button
+    - Fill meeting details
+    - Tap "Add"
+4. **Edit Meeting:**
+    - Long-press meeting
+    - Select "Edit"
+    - Update details
+5. **Delete Meeting:**
+    - Long-press meeting
+    - Select "Delete"
+6. **View Attendance:** Check employee attendance records
+7. **Reports:** Generate attendance reports
 
-## Week 3 Deliverables (Current)
+---
 
-### 1. API Integration with API Ninjas 
+## 🙏 Acknowledgments
 
-**What was implemented:**
-- Centralized `PersonService` class for all API calls
-- Real-world API integration using API Ninjas
-- Data fetching from production-ready endpoints
-- Singleton pattern to avoid duplicate API calls
+- Flutter and Dart communities for excellent documentation
+- API Ninjas for data integration
+- Excelerate internship program for guidance
+- All contributors and testers
 
+---
 
-### 2. Dashboard Screen with API Data 
+## 📄 Changelog
 
-**User Experience:**
-1. User logs in
-2. Dashboard loads with loading spinner
-3. API Ninjas fetches user data (2 seconds)
-4. Personalized welcome message displays
-5. Attendance status shown dynamically
+### Version 1.0.0 
+- Complete meeting persistence system
+- Dual-role authentication (Admin & User)
+- Full attendance tracking with location
+- Meeting management dashboard
+- Calendar view with filtering
+- LocalStorage implementation
+- Data synchronization
+---
 
-### 3. Profile Screen with Forms 
+**Made with ❤️ for Excelerate Internship Program**
 
-**Features added:**
-- TextFormFields pre-populated with API data
-- Editable fields: Name, Email, Username, Birthday, Branch, Major
-- Form validation for each field
-- Professional styling with themed containers
-- Loading indicator during data fetch
-- Error handling with fallback values
-
-### Packages
-dependencies:
-flutter:
-sdk: flutter
-http: ^1.1.0 # HTTP requests for API
-table_calendar: ^3.0.9 # Interactive calendar
-
-## Screenshots
-
-- **Home Dashboard**  
-  ![Dashboard](screenshots/week%203/dashboard.png)
-
-- **Profile**  
-  ![Profile](screenshots/week%203/profile.png)
+Last Updated: November 2025
